@@ -13,20 +13,20 @@
 
 ### 这是什么
 
-`ask-codebuddy` 是一个 Agent Skill（适用于 Codex / [CC] 等支持 `SKILL.md` 的客户端）。它把本机已登录的 CodeBuddy CLI 当作辅助子代理，用来处理可以独立完成的工作：代码分析、代码审查、方案比较、问题定位和局部实现，从而利用已有的 CodeBuddy 订阅或积分。
+`ask-codebuddy` 是一个 Agent Skill（适用于 Codex、[CC] 等读取 `SKILL.md` 的客户端）。它把本机已登录的 CodeBuddy CLI 当作辅助子代理，用来处理可以独立完成的工作：代码分析、代码审查、方案比较、问题定位和局部实现，从而利用已有的 CodeBuddy 订阅或积分。
 
 设计原则是**主代理负责，子代理执行**：
 
-- 主代理理解需求、拆分任务、给出必要上下文和明确的可修改文件范围。
+- 主代理理解需求、拆分任务，给出必要上下文和明确的可修改文件范围。
 - CodeBuddy 只做被指派的那一部分，不继承对话上下文。
 - 主代理检查证据、差异和测试结果，再决定是否采用。
 - 简单任务直接完成，不为委派而委派。
 
 ### 前置条件
 
-- 已安装 CodeBuddy CLI（命令 `codebuddy`，别名 `cbc`），常见路径为 `~/.local/bin/codebuddy`。
+- 已安装 CodeBuddy CLI（命令 `codebuddy`，别名 `cbc`），常见路径为 `~/.local/bin/codebuddy`；用 `codebuddy --version` 确认。
 - 已在本机完成登录，且账户有可用额度。
-- 能非交互调用，例如 `codebuddy --print --model custom-local:BC-DeepSeek-V4.1-Flash "hello"`。
+- 能非交互调用，例如 `codebuddy --print "hello"`。
 
 ### 安装
 
@@ -55,6 +55,16 @@ $ask-codebuddy 审查 src/auth/ 下的登录逻辑，列出并发问题，不要
 3. **执行**：按需要选择工具集——纯分析用 `--tools ""`，只读审查用 `Read,Glob,Grep`，局部实现用 `Read,Glob,Grep,Edit,Write`。
 4. **校验**：解析 JSON 输出，核对 `is_error`、`subtype`、`result` 和工具调用记录，再由主代理检查实际改动。
 
+### 模型选择
+
+**不指定 `--model` 时使用账户的默认模型**，这是最通用的用法。需要固定某个模型时，按 `codebuddy models`（或客户端界面）显示的确切标识传参：
+
+```bash
+--model <model-id>
+```
+
+部分自定义接入点使用带前缀的标识（形如 `custom-local:<name>`），原样传入即可，不要替换成名字相近的内置模型。模型不可用时如实报告错误，不要悄悄换模型。
+
 ### 命令模板
 
 纯分析（不读取文件、不执行命令）：
@@ -62,7 +72,6 @@ $ask-codebuddy 审查 src/auth/ 下的登录逻辑，列出并发问题，不要
 ```bash
 codebuddy \
   --print \
-  --model custom-local:BC-DeepSeek-V4.1-Flash \
   --tools "" \
   --output-format json \
   --max-turns 4 \
@@ -73,6 +82,8 @@ codebuddy \
   < work/codebuddy-prompt.txt > work/codebuddy-result.json
 ```
 
+需要固定模型时，在命令中加一行 `--model <model-id>`。
+
 只读审查：把 `--tools` 换成 `--tools "Read,Glob,Grep" --allowedTools "Read,Glob,Grep" --permission-mode dontAsk`。
 
 局部实现：在独立目录或 Git worktree 中运行，使用 `--tools "Read,Glob,Grep,Edit,Write" --permission-mode acceptEdits`，并约定可修改的文件和完成条件。
@@ -82,7 +93,7 @@ codebuddy \
 | 参数 | 作用 |
 | --- | --- |
 | `--print` | 非交互模式，输出结果后退出 |
-| `--model custom-local:BC-DeepSeek-V4.1-Flash` | 显式指定模型，不改动全局默认配置 |
+| `--model <model-id>` | 可选，仅为本次调用固定模型，不改动全局默认配置 |
 | `--tools ""` | 禁用全部工具，只处理提示里的内容 |
 | `--output-format json` | 输出机器可解析的 JSON |
 | `--max-turns 4` | 限制轮次，控制耗时和额度 |
@@ -97,7 +108,7 @@ codebuddy \
 - **不继承上下文**。CodeBuddy 看不到当前对话，必须显式提供项目约束、文件路径和完成标准。
 - **不要并发修改同一文件**。多个委派任务应划分互不冲突的范围。
 - **委派不扩大授权**。发布、部署、远端变更和对外发送消息仍需单独授权。
-- 遇到登录失效、额度不足或模型不可用时，如实说明错误，不自动重试到无限，也不擅自换模型或购买额度。
+- 遇到登录失效、额度不足或模型不可用时，如实说明错误，不无限重试，也不擅自换模型或购买额度。
 
 ### 许可
 
@@ -120,9 +131,9 @@ The design principle is **the main agent owns the task, the sub-agent does the w
 
 ### Requirements
 
-- CodeBuddy CLI installed as `codebuddy` (alias `cbc`), commonly at `~/.local/bin/codebuddy`.
+- CodeBuddy CLI installed as `codebuddy` (alias `cbc`), commonly at `~/.local/bin/codebuddy`; check with `codebuddy --version`.
 - Logged in on this machine, with available credits.
-- Non-interactive calls work, e.g. `codebuddy --print --model custom-local:BC-DeepSeek-V4.1-Flash "hello"`.
+- Non-interactive calls work, e.g. `codebuddy --print "hello"`.
 
 ### Install
 
@@ -151,6 +162,16 @@ The skill then works in four steps:
 3. **Run** — pick a tool set per task: `--tools ""` for pure analysis, `Read,Glob,Grep` for read-only review, `Read,Glob,Grep,Edit,Write` for scoped edits.
 4. **Verify** — parse the JSON output, check `is_error`, `subtype`, `result`, and the tool calls, then have the main agent inspect the actual changes.
 
+### Choosing a model
+
+**Omit `--model` to use the account's default model** — that is the portable default. To pin a model for a single call, pass the exact identifier reported by `codebuddy models` (or the client UI):
+
+```bash
+--model <model-id>
+```
+
+Some custom endpoints use a prefixed identifier such as `custom-local:<name>`; pass it verbatim rather than substituting a similarly named built-in model. If the model is unavailable, report the real error instead of quietly switching.
+
 ### Command template
 
 Pure analysis (no file access, no command execution):
@@ -158,7 +179,6 @@ Pure analysis (no file access, no command execution):
 ```bash
 codebuddy \
   --print \
-  --model custom-local:BC-DeepSeek-V4.1-Flash \
   --tools "" \
   --output-format json \
   --max-turns 4 \
@@ -169,6 +189,8 @@ codebuddy \
   < work/codebuddy-prompt.txt > work/codebuddy-result.json
 ```
 
+Add `--model <model-id>` when a specific model is required.
+
 Read-only review: swap `--tools` for `--tools "Read,Glob,Grep" --allowedTools "Read,Glob,Grep" --permission-mode dontAsk`.
 
 Scoped edits: run in a separate directory or a Git worktree with `--tools "Read,Glob,Grep,Edit,Write" --permission-mode acceptEdits`, and agree on the files that may change plus the definition of done.
@@ -178,7 +200,7 @@ Scoped edits: run in a separate directory or a Git worktree with `--tools "Read,
 | Flag | Purpose |
 | --- | --- |
 | `--print` | Non-interactive mode; prints the result and exits |
-| `--model custom-local:BC-DeepSeek-V4.1-Flash` | Pin the model without touching global defaults |
+| `--model <model-id>` | Optional; pins the model for this call only, without touching global defaults |
 | `--tools ""` | Disable every tool; only reason over the prompt |
 | `--output-format json` | Machine-parseable output |
 | `--max-turns 4` | Bound turns to control latency and spend |

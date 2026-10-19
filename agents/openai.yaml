@@ -1,4 +1,4 @@
 interface:
-  display_name: "CodeBuddy 本地子代理"
+  display_name: "CodeBuddy Subagent"
   short_description: "Delegate focused coding tasks to local CodeBuddy"
-  default_prompt: "使用 $ask-codebuddy，让本地 CodeBuddy 协助分析当前任务，并检查它的结论。"
+  default_prompt: "Use $ask-codebuddy to have the local CodeBuddy analyze the current task, then verify its conclusions."

@@ -1,24 +1,41 @@
 ---
 name: ask-codebuddy
-description: 通过本机 CodeBuddy CLI 和用户已登录的账户处理独立子任务。适用于委派代码分析、审查、方案比较和局部实现，或用户要求用 CodeBuddy 积分辅助工作时。
+description: Delegate self-contained subtasks to the locally installed CodeBuddy CLI — code analysis, review, approach comparison, and scoped edits. Use when work can be handed off to CodeBuddy to save context or use existing credits. 通过本机 CodeBuddy CLI 处理独立子任务。
 ---
 
 # Ask CodeBuddy
 
-把本机 CodeBuddy 当作辅助子代理使用，以便利用已有订阅或积分。主代理负责拆分任务、核验输出和整合结果。简单任务直接完成；适合独立分析、审查或局部实现的工作可以委派，无需每次询问。
+把本机 CodeBuddy 当作辅助子代理：主代理负责拆分任务、核验输出和整合结果，CodeBuddy 只完成被指派的独立部分。简单任务直接做；适合独立分析、审查或局部实现的工作可以委派，不必每次询问。
 
-## 本机调用
+Use the locally installed CodeBuddy CLI as a helper sub-agent. The main agent owns the task — it splits the work, checks the output, and integrates the result. Small tasks are done directly; analysis, review, and scoped implementation can be delegated.
 
-CLI 为 `codebuddy`，`cbc` 是同一工具的别名；若不在 `PATH` 中，常见安装位置是 `~/.local/bin/codebuddy`。调用前先用 `codebuddy --version` 确认可用。沿用现有登录，不读取或输出凭据。
+## Prerequisites
 
-推荐默认使用 `BC-DeepSeek-V4.1-Flash`，完整 CLI 标识为 `custom-local:BC-DeepSeek-V4.1-Flash`。每次调用显式指定模型，不修改 CodeBuddy 原有默认设置。这里的 `custom-local:` 前缀是该模型的实际标识，不应因此替换为内置模型 `hy3` 或 `deepseek-v4.1-flash`。用户指定其他模型时遵从；所选模型不可用时说明实际错误，不擅自换模型。调用成功不等于已确认积分扣费数额，不能用 `total_cost_usd` 推断积分消耗。
+- `codebuddy` (alias `cbc`) is installed and on `PATH`; a common location is `~/.local/bin/codebuddy`. Confirm with `codebuddy --version`.
+- The machine is already logged in and the account has credits.
+- Calls run non-interactively. Reuse the existing login and never read, print, or store credentials.
 
-把任务写入工作区的 `work/` 临时文件，通过标准输入传递，避免把任务内容拼接进 shell。纯分析示例：
+Do not change the user's login, default model, MCP servers, or global permissions.
+
+## Model selection
+
+Leave `--model` out to use the account's default model. To pin one for a single call, pass the exact identifier reported by `codebuddy models` (or the client UI):
+
+```bash
+--model <model-id>
+```
+
+Some custom endpoints use a prefixed identifier such as `custom-local:<name>`. Pass it verbatim; never substitute a similarly named built-in model. If the requested model is unavailable, report the actual error instead of silently switching.
+
+A successful call does not prove how many credits were charged, and `total_cost_usd` is not a credit count. Check the account statement when the amount matters.
+
+## Invocation
+
+Write the task to a temp file under `work/` and pass it through stdin, so nothing is pasted into a shell string. Pure analysis (no file access, no command execution):
 
 ```bash
 codebuddy \
   --print \
-  --model custom-local:BC-DeepSeek-V4.1-Flash \
   --tools "" \
   --output-format json \
   --max-turns 4 \
@@ -29,22 +46,22 @@ codebuddy \
   < work/codebuddy-prompt.txt > work/codebuddy-result.json
 ```
 
-参数限制只影响该进程。`--setting-sources user` 保留用户设置，任务涉及的项目约束由主代理明确提供；空 MCP 配置避免无意调用用户连接的外部服务。
+Add `--model <model-id>` when a specific model is required. These flags apply only to this process: `--setting-sources user` keeps user-level settings, and an empty MCP config prevents unintended calls to connected external services.
 
-## 分配任务
+## Delegating
 
-给出独立目标、必要上下文、文件绝对路径、允许操作和预期交付物。需要提供项目约束时，传递当前任务适用的指令。CodeBuddy 不继承本对话的上下文。
+Give each delegation a self-contained goal, the context it needs, absolute file paths, what it may touch, and the expected deliverable. CodeBuddy does not inherit this conversation's context.
 
-- **仅分析给定内容：** 使用 `--tools ""`，把必要内容放进提示文件。
-- **读取文件或审查：** 将工具参数替换为 `--tools "Read,Glob,Grep" --allowedTools "Read,Glob,Grep" --permission-mode dontAsk`。明确允许读取的文件或目录。
-- **局部实现：** 优先在独立工作目录或 Git worktree 中运行，使用 `--tools "Read,Glob,Grep,Edit,Write" --permission-mode acceptEdits`，约定可修改的文件和完成条件。由主代理检查变更并运行必要验证。若确实需要命令执行，按当前任务授权范围单独选择工具和权限。
+- **Analyze given content only:** `--tools ""`, with everything needed inside the prompt file.
+- **Read files or review:** replace the tools with `--tools "Read,Glob,Grep" --allowedTools "Read,Glob,Grep" --permission-mode dontAsk`, and name the files or directories it may read.
+- **Scoped implementation:** prefer a separate working directory or Git worktree, with `--tools "Read,Glob,Grep,Edit,Write" --permission-mode acceptEdits`, and agree on which files may change plus the definition of done. The main agent reviews the diff and runs the necessary checks. If command execution is genuinely required, grant it separately under the current task's authority.
 
-可独立的调用可以并行，但不要让多个代理同时修改相同文件。不要恢复用户现有会话，也不要擅自改变模型配置、登录、MCP 或全局权限。发布、部署、远端变更和对外发消息不因委派获得额外授权。
+Independent calls may run in parallel, but never let two agents edit the same file. Do not resume existing sessions or alter model configuration, login, MCP, or global permissions. Delegation grants no extra authority for publishing, deploying, remote changes, or outbound messages.
 
-## 接收结果
+## Handling results
 
-保存结果在工作区 `work/`。JSON 输出实测可能是事件数组，也可能是单个对象；查找 `type: "result"` 的结果对象，检查 `is_error`、`subtype` 和 `result`，不要仅凭退出码判断成功。
+Keep results under `work/`. The JSON output may be an event array or a single object; find the entry with `type: "result"` and check `is_error`, `subtype`, and `result` — never judge success from the exit code alone.
 
-工具调用可能包含在事件中。核对实际访问和改动，再使用代理结论。分析结果需要检查证据；实现结果需要检查差异和必要测试。
+Tool calls may appear in the event stream. Verify what was actually read or changed before relying on the conclusion: analysis needs evidence, implementation needs a reviewed diff and tests.
 
-为调用设置合理的时限与 `--max-turns`。失败时根据明确错误做有限修正；遇到登录、积分不足或模型不可用时向用户说明实际情况，不自动购买积分或无限重试。
+Set a reasonable timeout and `--max-turns`. On failure, make limited corrections based on the explicit error; if login expired, credits ran out, or the model is unavailable, tell the user what actually happened — do not buy credits or retry indefinitely.
