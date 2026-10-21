@@ -141,6 +141,10 @@ rm -rf "$WORKDIR"
 - **委派不扩大授权**。发布、部署、远端变更和对外发送消息仍需单独授权。
 - 遇到登录失效、额度不足或模型不可用时，如实说明错误，不无限重试，也不擅自换模型或购买额度。
 
+### 致谢
+
+- [LINUX DO](https://linux.do/) — 社区支持与灵感
+
 ### 许可
 
 [MIT](LICENSE) © 2026 zcx960
@@ -278,6 +282,10 @@ Scoped edits: run in a separate directory or a Git worktree with `--tools "Read,
 - **Never let two delegates edit the same file.** Give each delegation its own temp directory and a non-overlapping scope.
 - **Delegation grants no extra authority.** Publishing, deploying, remote changes, and outbound messages still need explicit approval.
 - If login expires, credits run out, or the model is unavailable, report the real error — don't retry forever, silently swap models, or buy credits.
+
+### Acknowledgments
+
+- [LINUX DO](https://linux.do/) — Community support and inspiration
 
 ### License
 
